@@ -8,28 +8,41 @@ These reports offer great insights that can drive treatment decisions, such as a
 estimated A1C; hourly average glucose readings; and a composite glucose graph
 which can help describe what ranges patients typically spend their time in.
 
-At the time, I really wanted an answer to another question: how does my body respond to mealtimes, and how can I compare time A vs time B?
+This data is great for describing glycemic control, but not glucose tolerance. With
+access to CGMs - and thus high resolution blood glucose data - expanding through
+over-the-counter programs and broad insurer coverage, we should seek methods to estimate
+or describe glucose tolerance based on available data.
 
-I'd just gotten COVID, and while my post-meal readings were the same as before, it
-seemed like I was more likely to hit higher numbers between first-bite and before
-the 2-hour mark -- way more likely than the previous month.
-
-Looking at the literature, glucose tolerance is commonly measured by taking multiple glucose measurements over a period of time `t`, and then directly comparing the area
-under the curve.
-
-# CGMs Can Provide Context
+# Output and Method
 
 Using Python and the data from my CGM - and borrowing the visual language of
 the FreeStlye Libre reports - I built high-resolution descriptive glucose tolerance
-curves and calculated the area under the median (mgH/L):
+curves and calculated the area under the median in `mgH/L`:
 
 ![image](images/May&June2024.png)
 
 ![image](images/July&Aug2024.png)
 
-I took these to the doctor (who was not impressed, by the way--like, at all) and
-was told that this was normal during an infection and that it'd all go back to normal
-in six to eight weeks.
+To estimate glucose tolerance, I relied on two key features of my glucose data:
+
+* An assumption that there's a 'threshold' glucose reading with is directly
+attributable to a dietary choice.
+* And an assumption that I would consistently fall below that threshold in
+between meals
+
+Using these assumptions, it's fairly straightforward to walk an ordered timeseries of
+glucose data and look for a 'spike' as determined by the threshold, and then take
+measurements of glucose data oriented around that spike.
+
+The method sequentially walks such a timeseries until it hits a trigger reading (`center`),
+and then it slices a given `n` readings before and `n` readings after. These slices are
+then assembled into a matrix of same-shape-same-center arrays, allowing me to determine
+quantile-level descriptions of blood glucose at each `n` step in time.
+
+Given that the data served by the FSL3 is usually an ordered, monotonic
+timeseries, `scikitlearn` is used to calculate an AUC for the median curve. The AUC
+can then be used to assess glucose tolerance, where a lower AUC is indicative
+of better tolerance.
 
 # How to build your own
 
@@ -40,13 +53,6 @@ calculating the AUC.
 From your personal database, or more likely LibreView, you need to extract an
 ascending-order timeseries of your glucose readings. Then, just pass the array into
 the method with the parameters of your choice.
-
-# How it works
-
-The method walks this array until it hits a trigger reading (`center`), and then it slices a given `n` readings before and `n` readings after.
-
-These same-shape-same-center arrays are then assembled into a matrix to determine quantile-level descriptions at each `n` step, and the median is used to calculate
-the AUC, assuming the data is collected at 5 minute intervals.
 
 The method does **not** generate pretty graphs, but I've included the code I used
 to assemble the graphs for user reference.
